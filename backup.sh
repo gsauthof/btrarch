@@ -43,7 +43,7 @@ function run()
   else
     set +e
     "$@"
-    e=$?
+    r=$?
     set -e
   fi
   return $r
