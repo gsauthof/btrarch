@@ -37,11 +37,16 @@ SNAPSHOT="$BASE/snapshot"
 
 function run()
 {
+  r=0
   if [ $DRY -eq 1 ]; then
     echo dry-run: "$@"
   else
+    set +e
     "$@"
+    e=$?
+    set -e
   fi
+  return $r
 }
 
 function init()
@@ -64,8 +69,16 @@ function backup()
 {
   for i in "$@"; do
     echo Backing up $i ...
+    set +e
     run "$RSYNC" --archive --whole-file --delete $RSYNC_FLAGS \
       "$i" "$DST"
+    r=$?
+    set -e
+    # 24: sync warning: some files vanished before they could be transferred
+    if [ $r -ne 0 -a $r -ne 24 ]; then
+      echo Rsync exit code: $r
+      exit $r
+    fi
     echo Backing up $i ... done
   done
 }
