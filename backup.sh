@@ -20,19 +20,19 @@ FIND=${FIND:-find}
 DRY=${DRY:-0}
 
 #RSYNC_FLAGS=${RSYNC_FLAGS:---itemize-changes --info=progress2,stats2,remove,backup}
-RSYNC_FLAGS=${RSYNC_FLAGS:---info=progress2,stats2,remove,backup}
+#RSYNC_FLAGS=${RSYNC_FLAGS:---info=progress2,stats2,remove,backup}
+# RHEL 7 does not have rsync 3.1, where --info was added
+RSYNC_FLAGS=${RSYNC_FLAGS:---stats}
 
 # how many of each to keep:
 # days weeks months years
 PLAN=${PLAN:-8 3 6 5}
 PLAN_ARRAY=($PLAN)
 
-HOST=`hostname`
 
 BASE="$1"
 shift
 MIRROR="$BASE/mirror"
-DST="$MIRROR/$HOST"
 SNAPSHOT="$BASE/snapshot"
 
 function run()
@@ -52,7 +52,6 @@ function run()
 function init()
 {
   mkdir -p $SNAPSHOT/{day,week,month,year}
-  mkdir -p $DST
 }
 function check_dirs()
 {
@@ -69,6 +68,20 @@ function backup()
 {
   for i in "$@"; do
     echo Backing up $i ...
+
+    HOST=`hostname`
+    DST="$MIRROR/$HOST"
+    mkdir -p $DST
+
+    if [ "$i" != "${i%:*}" ]; then
+      h=${i%:*}
+      n=${i#*:}
+      if [ "${h/\//_}" = "$h" ]; then
+        HOST=$h
+        DST="$MIRROR/$HOST"
+      fi
+    fi
+
     set +e
     run "$RSYNC" --archive --whole-file --delete $RSYNC_FLAGS \
       "$i" "$DST"
