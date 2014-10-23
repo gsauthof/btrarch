@@ -7,8 +7,36 @@
 set -e
 set -u
 
+function help()
+{
+  cat <<EOF
+call: $1 BTRFS_TARGET SOURCE_DIR_1 SOURCE_DIR_2 ...
+
+or
+
+call: $1 OPTION_1 OPTION_2 ...
+
+where:
+
+ -c, --config <script>     configuration file that is sourced
+ -t, --target <mnt-point>  BTRFS mount point acting as base dir
+                           under it the {mirror,snapshot} subdirectories
+                           are used
+ -s, --source <directory>  directory to backup
+                           can be specified multiple times, where
+                           directory is either a normal path or an rsync
+                           source specification like host:/path
+ -h, --help                this help screen
+
+Note that long options can also be specified via omitting the first dash.
+
+2014-10-23, Georg Sauthoff <mail@georg.so>
+EOF
+
+}
+
 if [ $# -lt 2 ]; then
-  echo call: $0 BTRFS_DEST DIRECTORY_1 DIRECTORY_2 ...
+  help "$0"
   exit 2
 fi
 
@@ -30,10 +58,50 @@ PLAN=${PLAN:-8 3 6 5}
 PLAN_ARRAY=($PLAN)
 
 
-BASE="$1"
-shift
-MIRROR="$BASE/mirror"
-SNAPSHOT="$BASE/snapshot"
+function parse_argv()
+{
+  if [ "${1#-}" = "$1" ]; then
+    TARGET=$1
+    SOURCE=("$@")
+    return
+  fi
+
+  prog_name=$0
+
+  while [ $# -gt 0 ] ; do
+    case $1 in
+      -c|-config|--config)
+        shift
+        . "$1"
+        shift
+        ;;
+      -t|-target|--target)
+        shift
+        TARGET=$1
+        shift
+        ;;
+      -s|-source|--source)
+        shift
+        SOURCE+=("$1")
+        shift
+        ;;
+      -h|-help|--help)
+        help "$prog_name"
+        exit 0
+        ;;
+      *)
+        echo Ignoring option: $1
+        shift
+        ;;
+    esac
+  done
+}
+
+function set_variables()
+{
+  MIRROR="$TARGET/mirror"
+  SNAPSHOT="$TARGET/snapshot"
+}
 
 function run()
 {
@@ -55,18 +123,22 @@ function init()
 }
 function check_dirs()
 {
-  for i in "$@"; do
-    if [ ${i%/} != "$i" ]; then
-      echo $i has a trailing slash - which instructs rsync to ommit
-      echo to create the root directory on the receiving side,
-      echo which does not really make sense for backups.
+  for ((i=0; i<${#SOURCE[@]}; ++i)); do
+    s=${SOURCE[i]}
+    if [ "${s%/}" != "$s" ]; then
+      cat <<-EOF
+	$s has a trailing slash - which instructs rsync to ommit
+	to create the root directory on the receiving side,
+	which does not really make sense for backups.
+	EOF
       exit 3
     fi
   done
 }
 function backup()
 {
-  for i in "$@"; do
+  for ((j=0; j<${#SOURCE[@]}; ++j)); do
+    i=${SOURCE[j]}
     echo Backing up $i ...
 
     HOST=`hostname`
@@ -127,9 +199,11 @@ function remove_old_snapshots()
   done
 }
 
+parse_argv "$@"
+set_variables
 init
-check_dirs "$@"
-backup "$@"
+check_dirs
+backup
 create_snapshots
 remove_old_snapshots
 
