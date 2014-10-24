@@ -2,14 +2,15 @@
 
 # 2014-07-14, Georg Sauthoff <mail@georg.so>
 
-# Backup script that uses rsync and BTRFS snapshots
-
 set -e
 set -u
 
 function help()
 {
   cat <<EOF
+Incrementally backup locations to BTRFS filesystem using
+a backup schedule.
+
 call: $1 BTRFS_TARGET SOURCE_DIR_1 SOURCE_DIR_2 ...
 
 or
@@ -28,24 +29,10 @@ where:
                            source specification like host:/path
  -h, --help                this help screen
 
-Note that long options can also be specified via omitting the first dash.
-
-2014-10-23, Georg Sauthoff <mail@georg.so>
 EOF
+  help_footer
 
 }
-
-if [ $# -lt 2 ]; then
-  help "$0"
-  exit 2
-fi
-
-RSYNC=${RSYNC:-rsync}
-BTRFS=${BTRFS:-btrfs}
-DATE=${DATA:-date}
-FIND=${FIND:-find}
-
-DRY=${DRY:-0}
 
 #RSYNC_FLAGS=${RSYNC_FLAGS:---itemize-changes --info=progress2,stats2,remove,backup}
 #RSYNC_FLAGS=${RSYNC_FLAGS:---info=progress2,stats2,remove,backup}
@@ -57,64 +44,13 @@ RSYNC_FLAGS=${RSYNC_FLAGS:---stats}
 PLAN=${PLAN:-8 3 6 5}
 PLAN_ARRAY=($PLAN)
 
-
-function parse_argv()
-{
-  if [ "${1#-}" = "$1" ]; then
-    TARGET=$1
-    SOURCE=("$@")
-    return
-  fi
-
-  prog_name=$0
-
-  while [ $# -gt 0 ] ; do
-    case $1 in
-      -c|-config|--config)
-        shift
-        . "$1"
-        shift
-        ;;
-      -t|-target|--target)
-        shift
-        TARGET=$1
-        shift
-        ;;
-      -s|-source|--source)
-        shift
-        SOURCE+=("$1")
-        shift
-        ;;
-      -h|-help|--help)
-        help "$prog_name"
-        exit 0
-        ;;
-      *)
-        echo Ignoring option: $1
-        shift
-        ;;
-    esac
-  done
-}
+directory=$(dirname $0)
+. $directory/shared.sh
 
 function set_variables()
 {
   MIRROR="$TARGET/mirror"
   SNAPSHOT="$TARGET/snapshot"
-}
-
-function run()
-{
-  r=0
-  if [ $DRY -eq 1 ]; then
-    echo dry-run: "$@"
-  else
-    set +e
-    "$@"
-    r=$?
-    set -e
-  fi
-  return $r
 }
 
 function init()
@@ -188,7 +124,6 @@ function remove_old_snapshots()
     k=0
     thresh=${PLAN_ARRAY[$plan_idx]}
     plan_idx=$((plan_idx+1))
-    #thresh=1
     for j in $($FIND -maxdepth 1 -type d \
                      -regextype grep -regex '^[0-9./-]\{4,\}$' | sort -r); do
       k=$((k+1))
@@ -199,7 +134,18 @@ function remove_old_snapshots()
   done
 }
 
-parse_argv "$@"
+function backup_parse_argv()
+{
+  if [ "${1#-}" = "$1" ]; then
+    TARGET=$1
+    shift
+    SOURCE=("$@")
+  else
+    parse_argv "$@"
+  fi
+}
+
+backup_parse_argv "$@"
 set_variables
 init
 check_dirs

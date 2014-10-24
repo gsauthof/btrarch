@@ -1,38 +1,49 @@
 #!/bin/bash
 
-# 2014-07-14, Georg Sauthoff <mail@georg.so>
-
-# Setting up device for snapshot backups
-
 set -e
-set -x
+set -u
 
-if [ $# -lt 3 ]; then
-  echo call: $0 DISK_DEVICE MAPPED_NAME MNT_POINT
-  exit 2
-fi
+function help()
+{
+  cat <<EOF
+Set up a device for snapshot backups using BTRFS and dm-crypt.
 
-BTRFS=${BTRFS:-btrfs}
-MKFS=${MKFS:-mkfs.btrfs}
-CRYPTSETUP=${CRYPTSETUP:-cryptsetup}
+call: $1 BTRFS_TARGET MAPPED_NAME DEVICE
 
-DEVICE="$1"
-NAME="$2"
-MNT="$3"
+or
 
+call: $1 OPTION_1 OPTION_2 ...
 
+where:
+
+ -c, --config <script>     configuration file that is sourced
+ -d, --device <device>     luks encrypted disk device
+ -t, --target <mnt-point>  BTRFS mount point acting as base dir
+                           under it the {mirror,snapshot} subdirectories
+                           are used
+ -n, --name <mapped_name>  name of the crypt device mapping
+ -h, --help                this help screen
+
+EOF
+  help_footer
+}
+
+directory=$(dirname $0)
+. $directory/shared.sh
+
+parse_argv "$@"
 echo Formatting $DEVICE
-"$CRYPTSETUP" luksFormat "$DEVICE"
+run "$CRYPTSETUP" luksFormat "$DEVICE"
 echo Opening $DEVICE as $NAME
-"$CRYPTSETUP" luksOpen "$DEVICE" "$NAME"
+run "$CRYPTSETUP" luksOpen "$DEVICE" "$NAME"
 echo Creating filesystem on $NAME
-"$MKFS" /dev/mapper/"$NAME"
-mkdir -p $MNT
-echo Mounting $NAME as $MNT
-mount -o noatime /dev/mapper/"$NAME" "$MNT"
-cd "$MNT"
+run "$MKFS" /dev/mapper/"$NAME"
+mkdir -p "$TARGET"
+echo Mounting $NAME as $TARGET
+run mount -o noatime /dev/mapper/"$NAME" "$TARGET"
+cd "$TARGET"
 echo Create mirror subvolume and snapshot base as backup destinations
-"$BTRFS" subvolume create mirror
-mkdir snapshot
-
+run "$BTRFS" subvolume create mirror
+mkdir -p snapshot
+echo You can now call backup.sh and finally umount.sh
 

@@ -1,26 +1,36 @@
 #!/bin/bash
 
 set -e
-set -x
+set -u
 
-if [ -v BACKUP_CFG ] ; then
-  . $BACKUP_CFG
-fi
+function help()
+{
+  cat <<EOF
+Opens and mounts an encrypted BTRFS filesystem.
 
-CRYPTSETUP=${CRYPTSETUP:-cryptsetup}
+call: $1 BTRFS_TARGET MAPPED_NAME DEVICE
 
-if [ \! -v DEV -o \! -v NAME -o \! -v MNT ]; then
+or
 
-  if [ $# -lt 3 ]; then
-    echo call: $0 DEVICE NAME MNT_POINT
-    exit 2
-  fi
+call: $1 OPTION_1 OPTION_2 ...
 
-  DEV=$1
-  NAME=$2
-  MNT=$3
-fi
+where:
 
+ -c, --config <script>     configuration file that is sourced
+ -d, --device <device>     luks encrypted disk device
+ -t, --target <mnt-point>  BTRFS mount point acting as base dir
+                           under it the {mirror,snapshot} subdirectories
+                           are used
+ -n, --name <mapped_name>  name of the crypt device mapping
+ -h, --help                this help screen
 
-"$CRYPTSETUP" luksOpen "$DEV" "$NAME"
-mount -o noatime /dev/mapper/"$NAME" "$MNT"
+EOF
+  help_footer
+}
+
+directory=$(dirname $0)
+. $directory/shared.sh
+
+parse_argv "$@"
+run "$CRYPTSETUP" luksOpen "$DEVICE" "$NAME"
+run mount -o noatime "$DEV_MAPPER"/"$NAME" "$TARGET"

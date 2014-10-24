@@ -12,11 +12,11 @@ DRY=${DRY:-0}
 function parse_argv()
 {
   if [ "${1#-}" = "$1" ]; then
-    set +e
+    set +u
     TARGET=$1
     NAME=$2
     DEVICE=$3
-    set -e
+    set -u
     return
   fi
 
