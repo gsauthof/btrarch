@@ -17,7 +17,7 @@ Create configuration file:
     DEVICE=/dev/sdb
     NAME=backup
     TARGET=/mnt/backup
-    SOURCE=(/home /root /etc /var)
+    SOURCE=(/home /root /etc /var example.org:/home)
 
 Initialize disk drive:
 
