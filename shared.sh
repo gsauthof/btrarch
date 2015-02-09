@@ -11,13 +11,19 @@ DRY=${DRY:-0}
 
 function parse_argv()
 {
-  if [ "${1#-}" = "$1" ]; then
-    set +u
-    TARGET=$1
-    NAME=$2
-    DEVICE=$3
-    set -u
-    return
+  if [ $# -gt 0 ]; then
+    if [ "${1#-}" = "$1" ]; then
+      TARGET=$1
+      shift
+      if [ $# -gt 0 ]; then
+        NAME=$1
+        shift
+        if [ $# -gt 0]; then
+          DEVICE=$1
+        fi
+      fi
+      return
+    fi
   fi
 
   prog_name=$0
