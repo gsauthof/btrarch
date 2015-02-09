@@ -89,12 +89,9 @@ function backup()
         DST="$MIRROR/$HOST"
       fi
     fi
-
-    set +e
+    r=0
     run "$RSYNC" --archive --whole-file --delete $RSYNC_FLAGS \
-      "$i" "$DST"
-    r=$?
-    set -e
+      "$i" "$DST" || r=$?
     # 24: sync warning: some files vanished before they could be transferred
     if [ $r -ne 0 -a $r -ne 24 ]; then
       echo Rsync exit code: $r

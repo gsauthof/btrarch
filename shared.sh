@@ -76,10 +76,7 @@ function run()
   if [ $DRY -eq 1 ]; then
     echo dry-run: "$@"
   else
-    set +e
-    "$@"
-    r=$?
-    set -e
+    "$@" || r=$?
   fi
   return $r
 }
