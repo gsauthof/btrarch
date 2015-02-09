@@ -1,8 +1,6 @@
 This repository contains shell scripts for creating and managing
 incremental backups on encrypted BTRFS filesystems.
 
-last change: 2014-10-24
-
 ## Author
 
 Georg Sauthoff <mail@georg.so>
@@ -73,8 +71,8 @@ Monday, the monthly on the 1st of each month and so on.
 
 ## Directory Layout
 
-The top level directory layout created by the `create.sh` on a target - say
-- /mnt/backup is:
+The top level directory layout created by the `create.sh` on a
+target - say - /mnt/backup is:
 
     /mnt/backup
     ├── mirror
