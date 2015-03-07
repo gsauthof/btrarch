@@ -47,6 +47,16 @@ PLAN_ARRAY=($PLAN)
 directory=$(dirname $0)
 . $directory/shared.sh
 
+function check_target()
+{
+  if mount | grep 'on '"$TARGET"' type btrfs' > /dev/null ; then
+    :
+  else
+    echo "BTRFS target $TARGET is not mounted - call $directory/mount.sh ..."
+    exit 1
+  fi
+}
+
 function set_variables()
 {
   MIRROR="$TARGET/mirror"
@@ -143,6 +153,7 @@ function backup_parse_argv()
 }
 
 backup_parse_argv "$@"
+check_target
 set_variables
 init
 check_dirs
