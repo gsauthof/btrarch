@@ -47,7 +47,7 @@ PLAN_ARRAY=($PLAN)
 directory=$(dirname $0)
 . $directory/shared.sh
 
-function check_target()
+function check_target
 {
   if mount | grep 'on '"$TARGET"' type btrfs' > /dev/null ; then
     :
@@ -57,17 +57,17 @@ function check_target()
   fi
 }
 
-function set_variables()
+function set_variables
 {
   MIRROR="$TARGET/mirror"
   SNAPSHOT="$TARGET/snapshot"
 }
 
-function init()
+function init
 {
   mkdir -p $SNAPSHOT/{day,week,month,year}
 }
-function check_dirs()
+function check_dirs
 {
   for ((i=0; i<${#SOURCE[@]}; ++i)); do
     s=${SOURCE[i]}
@@ -81,7 +81,7 @@ function check_dirs()
     fi
   done
 }
-function backup()
+function backup
 {
   for ((j=0; j<${#SOURCE[@]}; ++j)); do
     i=${SOURCE[j]}
@@ -110,10 +110,20 @@ function backup()
     echo Backing up $i ... done
   done
 }
-function create_snapshots()
+function check_subvolume
+{
+  if btrfs subvolume show "$MIRROR" >/dev/null ; then
+    :
+  else
+    echo "$MIRROR isn't a btrfs subvolume - cf. create.sh" >&2
+    exit 1
+  fi
+}
+function create_snapshots
 {
   plan_idx=0
-  for i in day/$($DATE +%Y-%m-%d) week/$($DATE +%Y-%V) month/$($DATE +%Y-%m) year/$($DATE +%Y) ; do
+  for i in day/$($DATE +%Y-%m-%d) week/$($DATE +%Y-%V) month/$($DATE +%Y-%m)
+           year/$($DATE +%Y) ; do
     thresh=${PLAN_ARRAY[$plan_idx]}
     if [ $thresh -ne 0 -a \! -e "$SNAPSHOT"/$i ]; then
       echo Create readonly snapshot $SNAPSHOT/$i
@@ -122,7 +132,7 @@ function create_snapshots()
     plan_idx=$((plan_idx+1))
   done
 }
-function remove_old_snapshots()
+function remove_old_snapshots
 {
   cd $SNAPSHOT/year
   plan_idx=0
@@ -141,7 +151,7 @@ function remove_old_snapshots()
   done
 }
 
-function backup_parse_argv()
+function backup_parse_argv
 {
   if [ "${1#-}" = "$1" ]; then
     TARGET=$1
@@ -154,6 +164,7 @@ function backup_parse_argv()
 
 backup_parse_argv "$@"
 check_target
+check_subvolume
 set_variables
 init
 check_dirs
