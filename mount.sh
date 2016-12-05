@@ -32,5 +32,15 @@ directory=$(dirname $0)
 . $directory/shared.sh
 
 parse_argv "$@"
-run "$CRYPTSETUP" luksOpen "$DEVICE" "$NAME"
-run mount -o noatime "$DEV_MAPPER"/"$NAME" "$TARGET"
+if lsblk -l -o fstype,mountpoint "$DEVICE" \
+  | grep 'btrfs *'"$TARGET" >/dev/null ; then
+  :
+else
+  run "$CRYPTSETUP" luksOpen "$DEVICE" "$NAME"
+fi
+if lsblk -l -o fstype,mountpoint "$DEV_MAPPER"/"$NAME" \
+  | grep 'btrfs *'"$TARGET" >/dev/null ; then
+  :
+else
+  run mount -o noatime "$DEV_MAPPER"/"$NAME" "$TARGET"
+fi
