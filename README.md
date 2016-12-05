@@ -12,7 +12,7 @@ Georg Sauthoff <mail@georg.so>
 Create configuration file:
 
     # cat config.sh
-    DEVICE=/dev/sdb
+    DEVICE=/dev/disk/by-id/some-id
     NAME=backup
     TARGET=/mnt/backup
     SOURCE=(/home /root /etc /var example.org:/home)
@@ -26,6 +26,10 @@ Initialize disk drive:
     # bash mount.sh  -c config.sh
     # bash backup.sh -c config.sh
     # bash umount.sh -c config.sh
+
+or all-in-one:
+
+    # ./trinity.sh -c config.sh
 
 ## Overview
 

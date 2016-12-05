@@ -87,9 +87,9 @@ function backup()
     i=${SOURCE[j]}
     echo Backing up $i ...
 
-    HOST=`hostname`
+    HOST=$(hostname)
     DST="$MIRROR/$HOST"
-    mkdir -p $DST
+    mkdir -p "$DST"
 
     if [ "$i" != "${i%:*}" ]; then
       h=${i%:*}
@@ -100,7 +100,7 @@ function backup()
       fi
     fi
     r=0
-    run "$RSYNC" --archive --whole-file --delete $RSYNC_FLAGS \
+    run "$RSYNC" --archive --delete $RSYNC_FLAGS \
       "$i" "$DST" || r=$?
     # 24: sync warning: some files vanished before they could be transferred
     if [ $r -ne 0 -a $r -ne 24 ]; then
