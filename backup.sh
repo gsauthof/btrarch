@@ -122,7 +122,7 @@ function check_subvolume
 function create_snapshots
 {
   plan_idx=0
-  for i in day/$($DATE +%Y-%m-%d) week/$($DATE +%Y-%V) month/$($DATE +%Y-%m)
+  for i in day/$($DATE +%Y-%m-%d) week/$($DATE +%Y-%V) month/$($DATE +%Y-%m) \
            year/$($DATE +%Y) ; do
     thresh=${PLAN_ARRAY[$plan_idx]}
     if [ $thresh -ne 0 -a \! -e "$SNAPSHOT"/$i ]; then
@@ -164,8 +164,8 @@ function backup_parse_argv
 
 backup_parse_argv "$@"
 check_target
-check_subvolume
 set_variables
+check_subvolume
 init
 check_dirs
 backup
