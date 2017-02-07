@@ -1,52 +1,69 @@
-This repository contains shell scripts for creating and managing
-incremental backups on encrypted BTRFS filesystems.
+This repository contains scripts for creating and managing
+incremental backups using an encrypted BTRFS filesystem as
+target.
 
-## Author
+The `backup.sh` script is designed to backup source filesystems
+that don't use BTRFS. See `README-mixed.md` for details.
+
+In contrast to that the `backup.py` script is for backing up
+BTRFS to BTRFS. The following sections describe it in detail.
+
 
 Georg Sauthoff <mail@georg.so>
 
+
 ## Example
 
-### Setup Steps
+Create basic configuration in `~/.config/btrarch.json`:
 
-Create configuration file:
 
-    # cat config.sh
-    DEVICE=/dev/disk/by-id/some-id
-    NAME=backup
-    TARGET=/mnt/backup
-    SOURCE=(/home /root /etc /var example.org:/home)
+    {
+      "destination" : {
+        "device" : "/dev/disk/by-id/usb-some-id",
+        "mapper_name" : "backup",
+        "mount_point" : "/mnt/backup"
+      },
+      "source" : [
+        {
+          "path"         : "/home",
+          "name"         : "home",
+          "snapshot_dir" : "/snapshot",
+          "destination"  : "/mnt/backup/example.org"
+        },
+        {
+          "path"         : "/",
+          "name"         : "slash",
+          "snapshot_dir" : "/snapshot",
+          "destination"  : "/mnt/backup/example.org"
+        }
+      ]
+    }
 
-Initialize disk drive:
+Retention plan is the default one.
 
-    # bash create.sh -c config.sh
+Format the destination device:
 
-### Regular Usage
+    # backup.py --init
 
-    # bash mount.sh  -c config.sh
-    # bash backup.sh -c config.sh
-    # bash umount.sh -c config.sh
+Create first full backup:
 
-or all-in-one:
+    # backup.py
 
-    # ./trinity.sh -c config.sh
+Create next incremental backup and possibly remove outdated
+snapshots according to the retention plan:
 
-## Overview
+    # backup.py
+
+## Background
 
 [BTRFS][btrfs] is a copy on write file system that supports fast
-snapshotting. Thus, using it for for incremental backups suggests itself.
-Basically, the backup involves simply rsyncing locations to a BTRFS mount,
-creating daily/weekly etc. read-only snapshots (which are normal filesystem
-locations) and that's it. For encryption, the BTRFS filesystem is
-created on a [luks-encrypted][luks] device-mapper device.
+snapshotting. Thus, using it for incremental backups suggests
+itself.  For encryption, the BTRFS filesystem is created on a
+[luks-encrypted][luks] device-mapper device.
 
 Advantages:
 
-- speed - especially when doing incremental backups I've observed for
-  example a speedup of 2 against [Dar][dar]. In my tests I used rsync in
-  whole-file-copy mode (which is also the default when syncing between
-  local disks), thus, the speedup does not come from a reduced number of
-  tranfered bytes.
+- speed
 - easy retrieval - the restore of the last or any previous snapshots
   can be done via simple filesystem commands. No need to restore
   several increments on each other or to construct some kind of
@@ -56,78 +73,76 @@ Advantages:
   operation - but it is also possible to explicitly verify
   a complete volume (cf. btrfs-scrub(8)).
 
-## Backup Schedule
+## Retention
 
-The default backup schedule used by the `backup.sh` script is:
+Old local and remote snapshots are removed according to a
+retention plan. The default one keeps 1 snapshot per day for the
+last 7 days, after that, for 4 weeks 1 per week, after that, for
+6 months, 1 per month and after that for 2 years 1 per year.
 
-    # days weeks months years
-    PLAN=${PLAN:-8 3 6 5}
+A custom retention plan can be specified in the JSON
+configuration file.
 
-Meaning that snapshots of the last 8 days, the last 3 weaks, the last 6
-months and last 5 years are retained.
+In case the number of snapshots in an interval is greater than
+specified in the plan, superfluous ones are randomly selected and
+removed.
 
-Note that the creation of a new snapshot is edge-triggered. In other words,
-the year, the week number etc. are extracted from the current date and are
-used for creation of the corresponding snapshots, iff a snapshot with the
-same name does not exist. For example, when running the script every day,
-the yearly snapshot is created on January the 1st, the weekly on each
-Monday, the monthly on the 1st of each month and so on.
+Snapshots are kept locally and remotely. The main reason for
+keeping them also locally is convenience. All local snapshots
+except the last one can be removed to free up space. The last one
+is sufficient for the next incremental backup run.
 
-## Directory Layout
+## Performance
 
-The top level directory layout created by the `create.sh` on a
-target - say - /mnt/backup is:
+Doing an incremental backup via btrfs send/receive is very fast
+because the filesystem is designed to efficiently support those
+operations. In contrast, on a traditional filesystem, tools like
+rsync have to traverse the complete directory tree and stat each
+file.
 
-    /mnt/backup
-    ├── mirror
-    └── snapshot
+For example, a typical incremental backup of a 250 GB SSD disk
+(containing 2 BTRFS volumes), of lightly changed data, to a USB 3
+external 2.5" spinning disk takes ~ 40 seconds. Including
+entering a secure password (which takes 5 seconds or so).
 
-When backing up two example hosts the mirror hierarchy could look like:
+## Directory Structure
 
-    /mnt/backup/mirror
-    ├── foo.example.org
-    │   ├── etc
-    │   ├── home
-    │   ├── root
-    │   └── var
-    └── bar.example.org
-        ├── etc
-        ├── home
-        └── var
+After some runs the local snapshot directory hierarchy might look like
+this:
 
-Where the snapshot hierarchy might look like:
+    /snapshot
+    ├── home
+    │   ├── 2016-11-28T22:37:49.576739
+    │   ├── 2016-12-02T22:52:22.110225
+    │   ├── 2017-01-30T23:42:22.647334
+    │   ├── 2017-02-06T12:23:34.267908
+    │   └── 2017-02-07T19:32:40.919178
+    └── slash
+	├── 2016-12-05T09:11:39.474245
+	├── 2016-12-11T23:47:14.647986
+	├── 2017-02-06T12:23:34.267908
+	└── 2017-02-07T19:32:40.919178
 
-    /mnt/backup/snapshot
-    ├── day
-    │   ├── 2014-10-10
-    │   ├── 2014-10-11
-    │   ├── 2014-10-12
-    │   ├── 2014-10-13
-    │   ├── 2014-10-14
-    │   ├── 2014-10-15
-    │   ├── 2014-10-23
-    │   └── 2014-10-24
-    ├── month
-    │   ├── 2014-07
-    │   ├── 2014-08
-    │   ├── 2014-09
-    │   └── 2014-10
-    ├── week
-    │   ├── 2014-41
-    │   ├── 2014-42
-    │   └── 2014-43
-    └── year
-        └── 2014
+As expected, the structure is similar on the backup device, e.g.:
 
-Note that there is not a snapshot for each of the last 8 days (assuming
-that today is October, 24th), but rather for the last 8 days where the
-backup script was executed.
+    /mnt/backup/example.org/
+    ├── home
+    │   ├── 2016-12-04T23:50:01.556331
+    │   ├── 2016-12-05T09:11:39.474245
+    │   ├── 2017-01-30T23:42:22.647334
+    │   ├── 2017-02-06T12:23:34.267908
+    │   └── 2017-02-07T19:32:40.919178
+    └── slash
+	├── 2016-12-05T09:11:39.474245
+	├── 2016-12-11T23:47:14.647986
+	├── 2017-02-06T12:23:34.267908
+	└── 2017-02-07T19:32:40.919178
 
-Under each snapshot directory the state of the mirror directory
-is frozen (read-only).
+## See also
 
-All those directory trees can be accessed using standard filesystem
-operations.
+In case BTRFS is not available as a filesystem (e.g. because the
+kernel is too old or the system isn't Linux) a [good alternative
+is to use a solution based on Dar][darscript].
 
 ## License
 
@@ -135,5 +150,7 @@ operations.
 
 [gpl]: http://www.gnu.org/copyleft/gpl.html
 [btrfs]: http://en.wikipedia.org/wiki/Btrfs
-[luks]: https://code.google.com/p/cryptsetup/
+[luks]: https://gitlab.com/cryptsetup/cryptsetup
 [dar]: http://dar.linux.free.fr/
+[darscript]: https://bitbucket.org/gsauthof/backup-scripts/src
+
