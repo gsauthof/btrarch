@@ -303,15 +303,22 @@ def outdated(xs, retentions, today):
 
 
 # call for local snapshots and backed-up ones
-def cleanup(snapshot_dir, name, retentions):
-  l = glob.glob(
+def clean(snapshot_dir, name, selector):
+  l = sorted(glob.glob(
     '{}/{}/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'.format(
-      snapshot_dir, name))
-  to_be_deleted = outdated(l, retentions, datetime.date.today())
+      snapshot_dir, name)))
+  to_be_deleted = selector(l)
   for d in to_be_deleted:
     log.info('Removing snapshot: {}'.format(d))
     check_output_log([btrfs, 'subvolume', 'delete', '--commit-after', d],
         stderr=STDOUT)
+
+# call for local snapshots and backed-up ones
+def cleanup(snapshot_dir, name, retentions, today=datetime.date.today()):
+  return clean(snapshot_dir, name, lambda l: outdated(l, retentions, today))
+
+def clean_local(snapshot_dir, name):
+  return clean(snapshot_dir, name, lambda l: l[:-1])
 
 # Example call sequence:
 # mount_backup_device('/dev/disk/by-id/usb-someid', 'backup', '/mnt/backup')
@@ -322,6 +329,10 @@ def run(args):
   try:
     if args.init:
       init(args.env.device, args.env.mapper_name)
+      return 0
+    if args.clean:
+      for d in args.defs:
+        clean_local(d.snapshot_dir, d.name)
       return 0
     mount_backup_device(args.env.device, args.env.mapper_name,
         args.env.mount_point)
@@ -350,6 +361,8 @@ def mk_arg_parser():
 2016, Georg Sauthoff <mail@georg.so>, GPLv3+''')
   p.add_argument('--config', default='~/.config/btrarch.json', metavar='FILE',
       help='configuration file (JSON)')
+  p.add_argument('--clean', action='store_true',
+      help='remove all local snapshots except the latest')
   p.add_argument('--debug', action='store_true',
       help='print debug log messages')
   p.add_argument('--init', action='store_true',
