@@ -5,6 +5,7 @@
 import argparse
 import datetime
 import glob
+import itertools
 import json
 import logging
 import os
@@ -187,16 +188,6 @@ def test_last_date_unsorted():
 def today():
   return datetime.datetime.now().isoformat()
 
-def partition(f, l):
-  a = []
-  b = []
-  for i in l:
-    if f(i):
-      a.append(i)
-    else:
-      b.append(i)
-  return (a, b)
-
 class Outdated_Tester(unittest.TestCase):
 
   retentions = [
@@ -244,7 +235,7 @@ class Outdated_Tester(unittest.TestCase):
            '2015-11-17', '2015-11-18', '2015-11-21', '2015-11-25' ]
     l = outdated(inp, [], datetime.date(2015, 11, 25))
     l.sort()
-    self.assertEqual(l, inp[:-1])
+    self.assertEqual(l, [])
 
   def test_full(self):
     inp = ['2015-12-31', '2015-12-30', '2015-12-29', '2015-12-28',
@@ -262,24 +253,52 @@ class Outdated_Tester(unittest.TestCase):
     inp = ['2016-11-28T18:10:23.110225', '2016-11-28T20:11:53.954313',
         '2016-11-28T22:37:49.576739']
     l = outdated(inp, self.retentions, datetime.date(2016, 11, 28))
-    self.assertEqual(l.__len__(), 1)
-    self.assertTrue(l[0] in inp[:2])
+    self.assertEqual(l.__len__(), 0)
+    #self.assertTrue(l[0] in inp[:2])
 
+class Akku:
+  def __init__(self, itr):
+    self.itr = itr
+    self.v = []
+  def __iter__(self):
+    return self
+  def __next__(self):
+    self.v.clear()
+    self.v.append(next(self.itr))
+    return self.v[0]
+  def tail(self):
+    return self.v
+
+class Take_While:
+  def __init__(self, f, itr):
+    self.f   = f
+    self.a   = Akku(itr)
+    self.itr = itertools.takewhile(f, self.a)
+  def __iter__(self):
+    return self.itr
+  def tail(self):
+    return self.a.tail()
+
+def intervals(xs, days, today):
+  tail = []
+  ys   = iter(xs)
+  os   = []
+  for day in days:
+    d    = today - datetime.timedelta(days=day)
+    s    = d.isoformat()
+    tw   = Take_While(lambda x: basename(x) < s, itertools.chain(tail, ys))
+    yield  tw
+    tail = tw.tail()
 
 def outdated(xs, retentions, today):
-  d  = today
-  ls = sorted(xs)
-  ls = ls[:-1] # always keep the last one for incremental snapshots
-  rs = []
-  for retention in retentions:
-    d -= datetime.timedelta(days=retention.days)
-    d_str = d.isoformat()
-    ks, ls = partition(lambda x : basename(x)[:10] > d_str, ls)
-    if ks.__len__() > retention.count:
-      ts = random.sample(ks, ks.__len__() - retention.count)
-      rs += ts
-  rs += ls
-  return rs
+  rs  = list(reversed(retentions))
+  ivs = intervals(sorted(xs), map(lambda x:x.days,  rs), today)
+  os  = list(next(ivs, []))
+  for (iv, count) in zip(ivs, map(lambda x:x.count, rs)):
+    ks  = list(iv)
+    ts  = random.sample(ks, max(0, ks.__len__() - count))
+    os += ts
+  return  os
 
 
 
