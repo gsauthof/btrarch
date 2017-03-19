@@ -55,18 +55,36 @@ default_retention = [
     ]
 
 
-log_format      = '%(asctime)s - %(levelname)-8s - %(message)s'
+
+log_format      = '{rel_secs:6.1f} {lvl}  {message}'
 log_date_format = '%Y-%m-%d %H:%M:%S'
-logging.basicConfig(format=log_format, datefmt=log_date_format,
-    level=logging.DEBUG)
-logging.getLogger().handlers[0].setLevel(logging.INFO)
+
 log = logging.getLogger(__name__)
+
+
+class Relative_Formatter(logging.Formatter):
+  level_dict = { 10 : 'DBG',  20 : 'INF', 30 : 'WRN', 40 : 'ERR',
+      50 : 'CRI' }
+  def format(self, rec):
+    rec.rel_secs = rec.relativeCreated/1000.0
+    rec.lvl = self.level_dict[rec.levelno]
+    return super(Relative_Formatter, self).format(rec)
+
+def setup_logging():
+  logging.basicConfig(format=log_format, datefmt=log_date_format,
+      level=logging.DEBUG)
+  logging.getLogger().handlers[0].setLevel(logging.INFO)
+  logging.getLogger().handlers[0].setFormatter(
+      Relative_Formatter(log_format, log_date_format, style='{'))
+
+
 
 def setup_file_logging(filename):
   log = logging.getLogger()
   fh = logging.FileHandler(filename)
   fh.setLevel(logging.DEBUG)
-  f = logging.Formatter(log_format + ' - [%(name)s]', log_date_format)
+  f = Relative_Formatter(log_format + ' - [%(name)s]',
+      log_date_format, style='{')
   fh.setFormatter(f)
   log.addHandler(fh)
 
@@ -403,5 +421,9 @@ def main(*a):
   return run(args)
 
 if __name__ == '__main__':
+  setup_logging()
+  log.info(('Started at {:' + log_date_format + '}')
+      .format(datetime.datetime.now()))
+
   sys.exit(main())
 
