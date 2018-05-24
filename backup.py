@@ -178,6 +178,18 @@ def umount_backup_device(name, path):
   check_output_log([umount, path], stderr=STDOUT)
   check_output_log([cryptsetup, 'luksClose', name], stderr=STDOUT)
 
+def remove_device(device):
+    dev = os.path.basename(os.path.realpath(device))
+    filename = '/sys/block/{}/device/../../../../remove'.format(dev)
+    with open(filename, 'wb', buffering=0) as f:
+        f.write(b'1\n')
+    try:
+        os.stat(device)
+        raise RuntimeError(
+                'Device {} still present after removal'.format(devname))
+    except FileNotFoundError:
+        pass
+
 def last_date(snapshot_dir, name):
   l = sorted(glob.glob(
     '{}/{}/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'.format(
@@ -364,6 +376,7 @@ def run(args):
         cleanup(d.destination , d.name, args.retention)
     if not args.no_umount:
       umount_backup_device(args.env.mapper_name, args.env.mount_point)
+      remove_device(args.env.device)
   except subprocess.CalledProcessError as e:
     log.error('Call failed: {}, Output: {}'.format(
       e, e.output.decode() if e.output else ''))
