@@ -179,6 +179,10 @@ def umount_backup_device(name, path):
   check_output_log([cryptsetup, 'luksClose', name], stderr=STDOUT)
 
 def remove_device(device):
+    log.info('Flushing {} ...'.format(device))
+    subprocess.check_output(['blockdev', '--flushbufs', device])
+    log.info('Flushing {} ... done'.format(device))
+    time.sleep(13)
     dev = os.path.basename(os.path.realpath(device))
     filename = '/sys/block/{}/device/../../../../remove'.format(dev)
     with open(filename, 'wb', buffering=0) as f:
@@ -189,6 +193,7 @@ def remove_device(device):
                 'Device {} still present after removal'.format(devname))
     except FileNotFoundError:
         pass
+    time.sleep(3)
 
 def last_date(snapshot_dir, name):
   l = sorted(glob.glob(
