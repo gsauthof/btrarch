@@ -339,9 +339,10 @@ def outdated(xs, retentions, today):
 
 # call for local snapshots and backed-up ones
 def clean(snapshot_dir, name, selector):
-  l = sorted(glob.glob(
+  l = glob.glob(
     '{}/{}/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'.format(
-      snapshot_dir, name)))
+      snapshot_dir, name))
+  l.sort()
   to_be_deleted = selector(l)
   for d in to_be_deleted:
     log.info('Removing snapshot: {}'.format(d))
@@ -354,6 +355,9 @@ def cleanup(snapshot_dir, name, retentions, today=datetime.date.today()):
 
 def clean_local(snapshot_dir, name):
   return clean(snapshot_dir, name, lambda l: l[:-1])
+
+def purge_local(snapshot_dir, name):
+  return clean(snapshot_dir, name, lambda l: l)
 
 # Example call sequence:
 # mount_backup_device('/dev/disk/by-id/usb-someid', 'backup', '/mnt/backup')
@@ -368,6 +372,10 @@ def run(args):
     if args.clean:
       for d in args.defs:
         clean_local(d.snapshot_dir, d.name)
+      return 0
+    if args.purge:
+      for d in args.defs:
+        purge_local(d.snapshot_dir, d.name)
       return 0
     mount_backup_device(args.env.device, args.env.mapper_name,
         args.env.mount_point)
@@ -399,6 +407,8 @@ def mk_arg_parser():
       help='configuration file (JSON)')
   p.add_argument('--clean', action='store_true',
       help='remove all local snapshots except the latest')
+  p.add_argument('--purge', action='store_true',
+      help='remove all local snapshots')
   p.add_argument('--debug', action='store_true',
       help='print debug log messages')
   p.add_argument('--init', action='store_true',
