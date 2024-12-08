@@ -153,12 +153,11 @@ def backup(date, ref_date, path, name, snapshot_dir, destination):
     if o[1]:
       log.debug('btrfs receive stderr: {}'.format(o[1].decode()))
     if receive.returncode:
-      raise RuntimeError('btrfs receive failed with exit status ({})'.format(
-        receive.returncode))
+        raise RuntimeError(f'btrfs receive failed with exit status ({receive.returncode}): {o[1].decode()}')
     send.wait()
     if send.returncode:
-      raise RuntimeError('btrfs send failed with exit status ({})'.format(
-        send.returncode))
+        send_err.seek(0)
+        raise RuntimeError(f'btrfs send failed with exit status ({send.returncode}): {send_err.read().decode()}')
 
 
 # Mount example:
