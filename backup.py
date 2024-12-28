@@ -381,7 +381,7 @@ def run(args):
     for d in args.defs:
       os.makedirs('{}/{}'.format(d.snapshot_dir, d.name), exist_ok=True)
       os.makedirs('{}/{}'.format(d.destination, d.name), exist_ok=True)
-      backup(date, last_date(d.snapshot_dir, d.name), **d.__dict__)
+      backup(date, last_date(d.destination, d.name), **d.__dict__)
       if not args.keep:
         cleanup(d.snapshot_dir, d.name, args.retention)
         cleanup(d.destination , d.name, args.retention)
